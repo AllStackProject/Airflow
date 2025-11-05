@@ -1,0 +1,30 @@
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+from airflow.utils.dates import days_ago
+from airflow.models import Variable
+
+default_args = {
+    "owner": "airflow",
+    "depends_on_past": False,
+    "retries": 0,
+}
+
+with DAG(
+    dag_id="video_encode_on_request",
+    description="Encode a video when triggered via REST API",
+    default_args=default_args,
+    start_date=days_ago(1),
+    schedule_interval=None,   # 수동 실행만
+    catchup=False,
+    tags=["ffmpeg", "on_demand"],
+) as dag:
+
+    encode_video = BashOperator(
+        task_id="ffmpeg_encode",
+        bash_command="""
+        mkdir -p {{ params.output_dir }} && \
+        ffmpeg -i {{ params.input_path }} \
+        -vf "scale=1280:720" -c:v libx264 -preset fast -crf 23 \
+        -c:a aac -b:a 128k {{ params.output_dir }}/output_720p.mp4
+        """
+    )
