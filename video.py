@@ -248,6 +248,27 @@ def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
 
         print(f"[HLS] Packaging → {m3u8_path}")
         subprocess.run(cmd, shell=True, check=True)
+    
+    # ---------------------------
+    # Master Playlist 생성
+    # ---------------------------
+    master_path = f"{hls_dir}/master.m3u8"
+    with open(master_path, "w") as f:
+        f.write("#EXTM3U\n")
+        f.write("#EXT-X-VERSION:3\n\n")
+
+        renditions = {
+            "360": ("800000", "640x360"),
+            "540": ("1400000", "960x540"),
+            "720": ("2800000", "1280x720")
+        }
+
+        for res in ["360", "540", "720"]:
+            bandwidth, resolution = renditions[res]
+            f.write(f"#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},RESOLUTION={resolution}\n")
+            f.write(f"video_{res}p.m3u8\n\n")
+
+    print("📝 master.m3u8 생성 완료:", master_path)
 
     # S3 업로드
     for root, dirs, files in os.walk(hls_dir):
