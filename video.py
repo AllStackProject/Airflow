@@ -164,13 +164,19 @@ def task_fail_callback(context):
 def download_video(org_id: int, video_uuid: str):
 
     s3 = boto3.client("s3")
-    s3_key = f"org-{org_id}/{video_uuid}/original.mp4"
-    local_input = f"{OUTPUT_DIR}/{video_uuid}_original.mp4"
+
+    # 작업 디렉토리 생성
+    local_dir = f"{OUTPUT_DIR}/{video_uuid}"
+    os.makedirs(local_dir, exist_ok=True)
+
+    # 원본 파일명도 video.mp4 로 통일
+    s3_key = f"org-{org_id}/{video_uuid}/video.mp4"
+    local_input = f"{local_dir}/video.mp4"
 
     print(f"⬇️ Download → s3://{BUCKET_ORIGINAL}/{s3_key}")
     s3.download_file(BUCKET_ORIGINAL, s3_key, local_input)
 
-    return local_input
+    return local_dir
 
 
 # -------------------------------
@@ -184,12 +190,13 @@ def build_transcode_task(resolution):
         task_id=f"transcode_video_{resolution}p",
         executor_config=exec_config(container)
     )
-    def _transcode(local_input: str, org_id: int, video_uuid: str):
+    def _transcode(local_dir: str, org_id: int, video_uuid: str):
 
-        output_local = f"{OUTPUT_DIR}/{video_uuid}_{resolution}p.mp4"
+        input_local = f"{local_dir}/video.mp4"
+        output_local = f"{local_dir}/video_{resolution}p.mp4"
 
         cmd = (
-            f"ffmpeg -y -i {local_input} "
+            f"ffmpeg -y -i {input_local} "
             f"-vf scale=-2:{resolution} "
             f"-c:v libx264 -preset veryfast -c:a aac {output_local}"
         )
@@ -198,9 +205,8 @@ def build_transcode_task(resolution):
         subprocess.run(cmd, shell=True, check=True)
 
         s3 = boto3.client("s3")
-        key = f"org-{org_id}/{video_uuid}/{resolution}p.mp4"
+        key = f"hls/org-{org_id}/{video_uuid}/video_{resolution}p.mp4"
 
-        print(f"⬆️ Upload {output_local} → s3://{BUCKET_ORIGINAL}/{key}")
         s3.upload_file(output_local, BUCKET_ORIGINAL, key)
 
         return output_local
@@ -216,47 +222,42 @@ def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
 
     s3 = boto3.client("s3")
 
-    out_dir = f"{OUTPUT_DIR}/hls_{video_uuid}"
-    os.makedirs(out_dir, exist_ok=True)
-
-    rendition_infos = []
+    local_dir = f"{OUTPUT_DIR}/{video_uuid}"
+    hls_dir = f"{local_dir}/hls"
+    os.makedirs(hls_dir, exist_ok=True)
 
     for mp4_path in trans_outputs:
-        res = mp4_path.split("_")[-1].replace("p.mp4", "")
-        res_dir = f"{out_dir}/{res}p"
-        os.makedirs(res_dir, exist_ok=True)
+        filename = os.path.basename(mp4_path)
+        base_name = filename.replace(".mp4", "")
+
+        # m3u8
+        m3u8_path = f"{hls_dir}/{base_name}.m3u8"
+
+        # TS segment directory
+        seg_dir = f"{hls_dir}/{base_name}"
+        os.makedirs(seg_dir, exist_ok=True)
+
+        seg_pattern = f"{seg_dir}/{base_name}_%05d.ts"
 
         cmd = (
-            f"ffmpeg -i {mp4_path} -c copy "
+            f"ffmpeg -y -i {mp4_path} -c copy "
             f"-map 0 -f hls -hls_time 10 -hls_playlist_type vod "
-            f"-hls_segment_filename '{res_dir}/segment%03d.ts' "
-            f"{res_dir}/index.m3u8"
+            f"-hls_segment_filename '{seg_pattern}' "
+            f"{m3u8_path}"
         )
 
-        print(f"📦 Packaging {res}p → {res_dir}")
+        print(f"[HLS] Packaging → {m3u8_path}")
         subprocess.run(cmd, shell=True, check=True)
 
-        rendition_infos.append((res, f"{res}p/index.m3u8"))
-
-    # MASTER M3U8 생성
-    master_path = f"{out_dir}/master.m3u8"
-    with open(master_path, "w") as m:
-        m.write("#EXTM3U\n")
-        for res, playlist in rendition_infos:
-            bandwidth = int(res) * 1000
-            m.write(
-                f"#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},RESOLUTION=1920x{res}\n"
-                f"{playlist}\n"
-            )
-
-    # 전체 업로드 (privideo-output)
-    print("⬆️ Uploading all HLS outputs to S3...")
-
-    for root, dirs, files in os.walk(out_dir):
+    # S3 업로드
+    for root, dirs, files in os.walk(hls_dir):
         for file in files:
             local_path = os.path.join(root, file)
-            key = f"hls/org-{org_id}/{video_uuid}/{local_path.replace(out_dir, '').lstrip('/')}"
-            print(f"S3 → {key}")
+            key = (
+                f"hls/org-{org_id}/{video_uuid}/"
+                f"{local_path.replace(hls_dir, '').lstrip('/')}"
+            )
+            print(f"⬆️ Upload: {key}")
             s3.upload_file(local_path, BUCKET_OUTPUT, key)
 
     print("🎉 Packaging + Upload completed.")
@@ -264,29 +265,17 @@ def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
 
 
 # -------------------------------
-# 4) PVC 정리(삭제)
+# 4) 임시공간 정리
 # -------------------------------
 @task(executor_config=exec_config(package_container))
 def cleanup_local_files(video_uuid: str):
 
-    base = OUTPUT_DIR
-    print(f"🧹 Cleaning up PVC… {base}")
+    target = f"{OUTPUT_DIR}/{video_uuid}"
 
-    # 원본 + MP4
-    for f in os.listdir(base):
-        if f.startswith(video_uuid):
-            path = os.path.join(base, f)
-            print(f"🗑 Removing {path}")
-            if os.path.isdir(path):
-                shutil.rmtree(path, ignore_errors=True)
-            else:
-                os.remove(path)
+    print(f"🧹 Cleaning up PVC directory… {target}")
 
-    # HLS 디렉터리
-    hls_dir = os.path.join(base, f"hls_{video_uuid}")
-    if os.path.exists(hls_dir):
-        print(f"🗑 Removing HLS: {hls_dir}")
-        shutil.rmtree(hls_dir, ignore_errors=True)
+    if os.path.exists(target):
+        shutil.rmtree(target, ignore_errors=True)
 
     print("🧼 PVC cleanup complete.")
     return True
