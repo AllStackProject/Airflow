@@ -134,26 +134,6 @@ def dag_success_callback(context):
             "message": "[DAG Success] Success upload"
         }
     )
-
-
-def task_fail_callback(context):
-    dag_id = context['dag'].dag_id
-    task_id = context['task_instance'].task_id
-    org_id = context['dag_run'].conf.get("org_id")
-    video_uuid = context['dag_run'].conf.get("video_uuid")
-
-    url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
-
-    requests.post(
-        url,
-        json={
-            "dag_id": dag_id,
-            "video_uuid": video_uuid,
-            "status": "FAILED",
-            "message": "[Task Failed] Failed on " + task_id
-        },
-        timeout=3
-    )
     
 # -------------------------------
 # 1) 다운로드
@@ -308,11 +288,8 @@ with DAG(
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    on_success_callback=dag_success_callback,   # DAG 전체 성공 시
-    on_failure_callback=dag_fail_callback,      # DAG 전체 실패 시
-    default_args={
-        "on_failure_callback": task_fail_callback  # Task 실패 시
-    }
+    on_success_callback=dag_success_callback,   # DAG 성공 시
+    on_failure_callback=dag_fail_callback,      # DAG 실패 시 
 ) as dag:
 
     org_id = "{{ dag_run.conf['org_id'] }}"
