@@ -114,8 +114,7 @@ def dag_fail_callback(context):
             "video_uuid": video_uuid,
             "status": "FAILED",
             "message": "[DAG Failed] " + error
-        },
-        timeout=3
+        }
     )
 
 
@@ -133,8 +132,7 @@ def dag_success_callback(context):
             "video_uuid": video_uuid,
             "status": "SUCCESS",
             "message": "[DAG Success] Success upload"
-        },
-        timeout=3
+        }
     )
 
 
