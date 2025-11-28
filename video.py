@@ -56,11 +56,6 @@ def exec_config(container):
     return {
         "pod_override": k8s.V1Pod(
             spec=k8s.V1PodSpec(
-                dns_policy="None",   # 핵심 1
-                dns_config=k8s.V1PodDNSConfig(  # 핵심 2
-                    nameservers=["8.8.8.8"],
-                    options=[k8s.V1PodDNSConfigOption(name="ndots", value="4")]
-                ),
                 tolerations=[
                     k8s.V1Toleration(
                         key="role",
