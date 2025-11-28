@@ -49,7 +49,6 @@ def get_transcode_container(res):
 # 패키징 컨테이너 (저사양)
 package_container = make_container("500m", "1000m", "1Gi", "2Gi")
 
-
 # -------------------------------
 # PVC 마운트 Pod Override
 # -------------------------------
@@ -57,6 +56,11 @@ def exec_config(container):
     return {
         "pod_override": k8s.V1Pod(
             spec=k8s.V1PodSpec(
+                dns_policy="None",   # 핵심 1
+                dns_config=k8s.V1PodDNSConfig(  # 핵심 2
+                    nameservers=["8.8.8.8"],
+                    options=[k8s.V1PodDNSConfigOption(name="ndots", value="4")]
+                ),
                 tolerations=[
                     k8s.V1Toleration(
                         key="role",
