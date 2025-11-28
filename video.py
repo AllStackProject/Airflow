@@ -67,6 +67,7 @@ def exec_config(container):
                 ],
                 node_selector={
                     "role": "airflow-worker"
+                    "kubernetes.io/hostname": "ip-10-0-0-12"
                 },
                 containers=[
                     k8s.V1Container(
