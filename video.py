@@ -170,7 +170,7 @@ def download_video(org_id: int, video_uuid: str):
     os.makedirs(local_dir, exist_ok=True)
 
     # 원본 파일명도 video.mp4 로 통일
-    s3_key = f"org-{org_id}/{video_uuid}/video.mp4"
+    s3_key = f"hls/org-{org_id}/{video_uuid}/video.mp4"
     local_input = f"{local_dir}/video.mp4"
 
     print(f"⬇️ Download → s3://{BUCKET_ORIGINAL}/{s3_key}")
