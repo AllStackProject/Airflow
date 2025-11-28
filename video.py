@@ -230,7 +230,7 @@ def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
     # ---------------------------
     # Master Playlist 생성
     # ---------------------------
-    master_path = f"{hls_dir}/master.m3u8"
+    master_path = f"{hls_dir}/video.m3u8"
     with open(master_path, "w") as f:
         f.write("#EXTM3U\n")
         f.write("#EXT-X-VERSION:3\n\n")
