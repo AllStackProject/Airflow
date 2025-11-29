@@ -104,7 +104,7 @@ def dag_fail_callback(context):
     video_uuid = context['dag_run'].conf.get("video_uuid")
     error = str(context.get("exception"))
 
-    url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
+    url = f"https://privideo-backend-service.web.svc.cluster.local:8080/{org_id}/video/airflow/status"
 
     requests.post(
         url,
@@ -122,7 +122,7 @@ def dag_success_callback(context):
     org_id = context['dag_run'].conf.get("org_id")
     video_uuid = context['dag_run'].conf.get("video_uuid")
 
-    url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
+    url = f"https://privideo-backend-service.web.svc.cluster.local:8080/{org_id}/video/airflow/status"
 
     requests.post(
         url,
