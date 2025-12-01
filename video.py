@@ -7,6 +7,8 @@ import subprocess
 import shutil
 import requests
 from kubernetes.client import models as k8s
+from airflow.operators.python import get_current_context
+
 
 # -------------------------------
 # 기본 설정
@@ -48,6 +50,7 @@ def get_transcode_container(res):
 
 # 패키징 컨테이너 (저사양)
 package_container = make_container("500m", "1000m", "1Gi", "2Gi")
+
 
 # -------------------------------
 # PVC 마운트 Pod Override
@@ -94,87 +97,88 @@ def exec_config(container):
         )
     }
 
+
 # -------------------------------
 # API 콜백 함수
 # -------------------------------
-
 def dag_fail_callback(context):
     print("============ FAILED ============")
-    dag_run = context.get("dag_run")
-    ti = context.get("task_instance")
+
+    dag_run = context["dag_run"]
+    ti = context["task_instance"]
     exception = context.get("exception")
 
     org_id = dag_run.conf.get("org_id")
     video_uuid = dag_run.conf.get("video_uuid")
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
-
     payload = {
         "video_uuid": video_uuid,
         "status": "FAILED",
         "message": f"[DAG Failed] {exception}"
     }
 
-    print("===== DAG FAIL CALLBACK START =====")
-    print("Request URL:", url)
-    print("Request JSON:", payload)
-    print("Failed Task:", ti.task_id)
+    print("===== DAG FAIL CALLBACK =====")
+    print("URL:", url)
+    print("JSON:", payload)
+    print("Task:", ti.task_id)
     print("Exception:", exception)
-    print("===== DAG FAIL CALLBACK END =====")
+    print("==============================")
 
     requests.post(url, json=payload)
 
 
 def dag_success_callback(context):
     print("============ SUCCESS ============")
-    dag_run = context.get("dag_run")
 
-    print(dag_run)
-    
+    dag_run = context["dag_run"]
+
     org_id = dag_run.conf.get("org_id")
     video_uuid = dag_run.conf.get("video_uuid")
-    
-    print(org_id)
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
-
     payload = {
         "video_uuid": video_uuid,
         "status": "SUCCESS",
         "message": "[DAG Success] Success upload"
     }
 
-    print("===== DAG SUCCESS CALLBACK START =====")
-    print("Request URL:", url)
-    print("Request JSON:", payload)
-    print("===== DAG SUCCESS CALLBACK END =====")
+    print("===== DAG SUCCESS CALLBACK =====")
+    print("URL:", url)
+    print("JSON:", payload)
+    print("================================")
 
     requests.post(url, json=payload)
-    
+
+
 # -------------------------------
 # 1) 다운로드
 # -------------------------------
 @task(executor_config=exec_config(package_container))
-def download_video(org_id: int, video_uuid: str):
+def download_video():
+
+    context = get_current_context()
+    dag_run = context["dag_run"]
+
+    org_id = dag_run.conf.get("org_id")
+    video_uuid = dag_run.conf.get("video_uuid")
 
     s3 = boto3.client("s3")
 
-    # 작업 디렉토리 생성
     local_dir = f"{OUTPUT_DIR}/{video_uuid}"
     os.makedirs(local_dir, exist_ok=True)
 
-    # 원본 파일명도 video.mp4 로 통일
     s3_key = f"hls/org-{org_id}/{video_uuid}/video.mp4"
     local_input = f"{local_dir}/video.mp4"
 
-    print(f"⬇️ Download → s3://{BUCKET_ORIGINAL}/{s3_key}")
+    print(f"⬇️ Download: s3://{BUCKET_ORIGINAL}/{s3_key}")
     s3.download_file(BUCKET_ORIGINAL, s3_key, local_input)
 
     return local_dir
 
 
 # -------------------------------
-# 2) 트랜스코딩 (해상도별 병렬)
+# 2) 트랜스코딩
 # -------------------------------
 def build_transcode_task(resolution):
 
@@ -184,7 +188,13 @@ def build_transcode_task(resolution):
         task_id=f"transcode_video_{resolution}p",
         executor_config=exec_config(container)
     )
-    def _transcode(local_dir: str, org_id: int, video_uuid: str):
+    def _transcode(local_dir: str):
+
+        context = get_current_context()
+        dag_run = context["dag_run"]
+
+        org_id = dag_run.conf.get("org_id")
+        video_uuid = dag_run.conf.get("video_uuid")
 
         input_local = f"{local_dir}/video.mp4"
         output_local = f"{local_dir}/video_{resolution}p.mp4"
@@ -195,12 +205,11 @@ def build_transcode_task(resolution):
             f"-c:v libx264 -preset veryfast -c:a aac {output_local}"
         )
 
-        print(f"🎬 Transcoding {resolution}p → {output_local}")
+        print(f"🎬 Transcoding {resolution}p")
         subprocess.run(cmd, shell=True, check=True)
 
         s3 = boto3.client("s3")
         key = f"hls/org-{org_id}/{video_uuid}/video_{resolution}p.mp4"
-
         s3.upload_file(output_local, BUCKET_ORIGINAL, key)
 
         return output_local
@@ -212,7 +221,13 @@ def build_transcode_task(resolution):
 # 3) 패키징 + 업로드
 # -------------------------------
 @task(executor_config=exec_config(package_container))
-def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
+def packaging_and_upload(trans_outputs: list):
+
+    context = get_current_context()
+    dag_run = context["dag_run"]
+
+    org_id = dag_run.conf.get("org_id")
+    video_uuid = dag_run.conf.get("video_uuid")
 
     s3 = boto3.client("s3")
 
@@ -220,14 +235,12 @@ def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
     hls_dir = f"{local_dir}/hls"
     os.makedirs(hls_dir, exist_ok=True)
 
+    # 각 해상도 mp4 → m3u8 + ts 변환
     for mp4_path in trans_outputs:
         filename = os.path.basename(mp4_path)
         base_name = filename.replace(".mp4", "")
 
-        # m3u8
         m3u8_path = f"{hls_dir}/{base_name}.m3u8"
-
-        # TS segment directory
         seg_dir = f"{hls_dir}/{base_name}"
         os.makedirs(seg_dir, exist_ok=True)
 
@@ -240,12 +253,10 @@ def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
             f"{m3u8_path}"
         )
 
-        print(f"[HLS] Packaging → {m3u8_path}")
+        print(f"[HLS] Packaging {base_name}")
         subprocess.run(cmd, shell=True, check=True)
-    
-    # ---------------------------
+
     # Master Playlist 생성
-    # ---------------------------
     master_path = f"{hls_dir}/video.m3u8"
     with open(master_path, "w") as f:
         f.write("#EXTM3U\n")
@@ -262,33 +273,33 @@ def packaging_and_upload(org_id: int, video_uuid: str, trans_outputs: list):
             f.write(f"#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},RESOLUTION={resolution}\n")
             f.write(f"video_{res}p.m3u8\n\n")
 
-    print("📝 master.m3u8 생성 완료:", master_path)
+    print("📝 Master Playlist 완료:", master_path)
 
-    # S3 업로드
+    # 업로드
     for root, dirs, files in os.walk(hls_dir):
         for file in files:
             local_path = os.path.join(root, file)
-            key = (
-                f"hls/org-{org_id}/{video_uuid}/"
-                f"{local_path.replace(hls_dir, '').lstrip('/')}"
-            )
-            print(f"⬆️ Upload: {key}")
+            key = f"hls/org-{org_id}/{video_uuid}/{local_path.replace(hls_dir, '').lstrip('/')}"
+            print("⬆️ Upload:", key)
             s3.upload_file(local_path, BUCKET_OUTPUT, key)
 
-    print("🎉 Packaging + Upload completed.")
     return True
 
 
 # -------------------------------
-# 4) 임시공간 정리
+# 4) 정리
 # -------------------------------
 @task(executor_config=exec_config(package_container))
-def cleanup_local_files(video_uuid: str):
+def cleanup_local_files():
+
+    context = get_current_context()
+    dag_run = context["dag_run"]
+
+    video_uuid = dag_run.conf.get("video_uuid")
 
     target = f"{OUTPUT_DIR}/{video_uuid}"
 
-    print(f"🧹 Cleaning up PVC directory… {target}")
-
+    print("🧹 Cleaning up:", target)
     if os.path.exists(target):
         shutil.rmtree(target, ignore_errors=True)
 
@@ -297,29 +308,26 @@ def cleanup_local_files(video_uuid: str):
 
 
 # -------------------------------
-# DAG 정의 (콜백 추가 완료)
+# DAG
 # -------------------------------
 with DAG(
     dag_id="video_transcode_hls_pipeline",
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    on_success_callback=dag_success_callback,   # DAG 성공 시
-    on_failure_callback=dag_fail_callback,      # DAG 실패 시 
+    on_success_callback=dag_success_callback,
+    on_failure_callback=dag_fail_callback,
 ) as dag:
 
-    org_id = "{{ dag_run.conf['org_id'] }}"
-    video_uuid = "{{ dag_run.conf['video_uuid'] }}"
-
-    download = download_video(org_id, video_uuid)
+    local_dir = download_video()
 
     trans_tasks = [
-        build_transcode_task(r)(download, org_id, video_uuid)
+        build_transcode_task(r)(local_dir)
         for r in RESOLUTIONS
     ]
 
-    upload = packaging_and_upload(org_id, video_uuid, trans_outputs=trans_tasks)
+    upload = packaging_and_upload(trans_tasks)
 
-    clean = cleanup_local_files(video_uuid)
+    clean = cleanup_local_files()
 
-    download >> trans_tasks >> upload >> clean
+    local_dir >> trans_tasks >> upload >> clean
