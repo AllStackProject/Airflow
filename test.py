@@ -31,6 +31,5 @@ with DAG(
 ) as dag:
 
     ok = success_task()
-    ng = fail_task()
 
-    ok >> ng
+    ok
