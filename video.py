@@ -99,36 +99,51 @@ def exec_config(container):
 # -------------------------------
 
 def dag_fail_callback(context):
-    org_id = context['dag_run'].conf.get("org_id")
-    video_uuid = context['dag_run'].conf.get("video_uuid")
-    error = str(context.get("exception"))
+    dag_run = context.get("dag_run")
+    ti = context.get("task_instance")
+    exception = context.get("exception")
+
+    org_id = dag_run.conf.get("org_id")
+    video_uuid = dag_run.conf.get("video_uuid")
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
 
-    requests.post(
-        url,
-        json={
-            "video_uuid": video_uuid,
-            "status": "FAILED",
-            "message": "[DAG Failed] " + error
-        }
-    )
+    payload = {
+        "video_uuid": video_uuid,
+        "status": "FAILED",
+        "message": f"[DAG Failed] {exception}"
+    }
+
+    print("===== DAG FAIL CALLBACK START =====")
+    print("Request URL:", url)
+    print("Request JSON:", payload)
+    print("Failed Task:", ti.task_id)
+    print("Exception:", exception)
+    print("===== DAG FAIL CALLBACK END =====")
+
+    requests.post(url, json=payload)
 
 
 def dag_success_callback(context):
-    org_id = context['dag_run'].conf.get("org_id")
-    video_uuid = context['dag_run'].conf.get("video_uuid")
+    dag_run = context.get("dag_run")
+
+    org_id = dag_run.conf.get("org_id")
+    video_uuid = dag_run.conf.get("video_uuid")
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
 
-    requests.post(
-        url,
-        json={
-            "video_uuid": video_uuid,
-            "status": "SUCCESS",
-            "message": "[DAG Success] Success upload"
-        }
-    )
+    payload = {
+        "video_uuid": video_uuid,
+        "status": "SUCCESS",
+        "message": "[DAG Success] Success upload"
+    }
+
+    print("===== DAG SUCCESS CALLBACK START =====")
+    print("Request URL:", url)
+    print("Request JSON:", payload)
+    print("===== DAG SUCCESS CALLBACK END =====")
+
+    requests.post(url, json=payload)
     
 # -------------------------------
 # 1) 다운로드
