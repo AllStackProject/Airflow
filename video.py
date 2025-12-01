@@ -100,12 +100,12 @@ def exec_config(container):
 
 def dag_fail_callback(context):
     print("============ FAILED ============")
-    dag_id = context.get("dag_id")
+    dag_run = context.get("dag_run")
     ti = context.get("task_instance")
     exception = context.get("exception")
 
-    org_id = dag_id.conf.get("org_id")
-    video_uuid = dag_id.conf.get("video_uuid")
+    org_id = dag_run.conf.get("org_id")
+    video_uuid = dag_run.conf.get("video_uuid")
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
 
@@ -127,10 +127,14 @@ def dag_fail_callback(context):
 
 def dag_success_callback(context):
     print("============ SUCCESS ============")
-    dag_id = context.get("dag_id")
+    dag_run = context.get("dag_run")
 
-    org_id = dag_id.conf.get("org_id")
-    video_uuid = dag_id.conf.get("video_uuid")
+    print(dag_run)
+    
+    org_id = dag_run.conf.get("org_id")
+    video_uuid = dag_run.conf.get("video_uuid")
+    
+    print(org_id)
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
 
