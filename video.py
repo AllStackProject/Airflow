@@ -103,38 +103,25 @@ def exec_config(container):
 # -------------------------------
 def dag_fail_callback(context):
     print("============ FAILED ============")
-
-    dag_run = context["dag_run"]
-    ti = context["task_instance"]
-    exception = context.get("exception")
-
-    org_id = dag_run.conf.get("org_id")
-    video_uuid = dag_run.conf.get("video_uuid")
+    
+    org_id = context["dag_run"].conf.get("org_id")
+    video_uuid = context["dag_run"].conf.get("video_uuid")
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
     payload = {
         "video_uuid": video_uuid,
         "status": "FAILED",
-        "message": f"[DAG Failed] {exception}"
+        "message": f"[DAG Failed] Failed"
     }
-
-    print("===== DAG FAIL CALLBACK =====")
-    print("URL:", url)
-    print("JSON:", payload)
-    print("Task:", ti.task_id)
-    print("Exception:", exception)
-    print("==============================")
 
     requests.post(url, json=payload)
 
 
 def dag_success_callback(context):
     print("============ SUCCESS ============")
-
-    dag_run = context["dag_run"]
-
-    org_id = dag_run.conf.get("org_id")
-    video_uuid = dag_run.conf.get("video_uuid")
+    
+    org_id = context["dag_run"].conf.get("org_id")
+    video_uuid = context["dag_run"].conf.get("video_uuid")
 
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
     payload = {
@@ -142,11 +129,6 @@ def dag_success_callback(context):
         "status": "SUCCESS",
         "message": "[DAG Success] Success upload"
     }
-
-    print("===== DAG SUCCESS CALLBACK =====")
-    print("URL:", url)
-    print("JSON:", payload)
-    print("================================")
 
     requests.post(url, json=payload)
 
