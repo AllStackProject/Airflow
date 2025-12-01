@@ -277,6 +277,7 @@ def cleanup_local_files():
     context = get_current_context()
     dag_run = context["dag_run"]
 
+    org_id = dag_run.conf.get("org_id")
     video_uuid = dag_run.conf.get("video_uuid")
 
     target = f"{OUTPUT_DIR}/{video_uuid}"
@@ -284,6 +285,15 @@ def cleanup_local_files():
     print("🧹 Cleaning up:", target)
     if os.path.exists(target):
         shutil.rmtree(target, ignore_errors=True)
+
+    url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
+    payload = {
+        "video_uuid": video_uuid,
+        "status": "SUCCESS",
+        "message": "[DAG Success] Success upload"
+    }
+
+    requests.post(url, json=payload)
 
     print("🧼 PVC cleanup complete.")
     return True
