@@ -11,12 +11,22 @@ def test_success_callback(context):
     print("🎉 SUCCESS CALLBACK 실행됨!")
 
 
+def test_failure_callback(context):
+    print("🔥 FAILURE CALLBACK 실행됨!")
+
+
 # --------------------------
 # Task
 # --------------------------
 @task
 def success_task():
     print("task 성공 실행")
+
+
+@task
+def fail_task():
+    print("task 실패 실행 예정")
+    raise ValueError("일부러 예외 발생!")
 
 
 # --------------------------
@@ -27,9 +37,11 @@ with DAG(
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    on_success_callback=test_success_callback
+    on_success_callback=test_success_callback,
+    on_failure_callback=test_failure_callback,
 ) as dag:
 
     ok = success_task()
+    ng = fail_task()
 
-    ok
+    ok >> ng
