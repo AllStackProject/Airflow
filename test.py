@@ -14,8 +14,6 @@ def test_success_callback(context):
 
 def test_failure_callback(context):
     print("🔥 FAILURE CALLBACK 실행됨!")
-    print("=================== ti ===================")
-    print(context['ti'])
     print("=================== var.json ===================")
     print(context['var.json.org_id'])
     print("=================== var.value ===================")
