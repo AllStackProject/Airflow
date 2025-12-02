@@ -3,13 +3,17 @@ from airflow.decorators import task
 from airflow.operators.python import get_current_context
 from datetime import datetime
 
+from functools import partial
+
 
 # --------------------------
 # 콜백 함수
 # --------------------------
-def test_success_callback(context):
+def test_success_callback(context, video_uuid=None):
     print("🎉 SUCCESS CALLBACK 실행됨!")
-    print(context['dag_run'])
+    print("partial 주입")
+    print("video_uuid =", video_uuid)
+    print("dag_run.conf =", context["dag_run"].conf)
 
 
 def test_failure_callback(context):
@@ -38,7 +42,7 @@ with DAG(
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    on_success_callback=test_success_callback,
+    on_success_callback=partial(test_success_callback, video_uuid="abcd-1234"),
     on_failure_callback=test_failure_callback,
 ) as dag:
 
