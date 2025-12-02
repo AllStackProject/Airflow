@@ -9,10 +9,8 @@ from functools import partial
 # --------------------------
 # 콜백 함수
 # --------------------------
-def test_success_callback(context, video_uuid=None):
+def test_success_callback(context):
     print("🎉 SUCCESS CALLBACK 실행됨!")
-    print("partial 주입")
-    print("video_uuid =", video_uuid)
     print("dag_run.conf =", context["dag_run"].conf)
 
 
@@ -42,8 +40,9 @@ with DAG(
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    on_success_callback=partial(test_success_callback, video_uuid="abcd-1234"),
-    on_failure_callback=test_failure_callback,
+    default_args = {
+        "on_success_callback": test_success_callback,
+    }
 ) as dag:
 
     success_task()
