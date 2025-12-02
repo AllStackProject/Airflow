@@ -14,10 +14,12 @@ def test_success_callback(context):
 
 def test_failure_callback(context):
     print("🔥 FAILURE CALLBACK 실행됨!")
-    print("=================== dag ===================")
-    print(context['dag'])
-    print("=================== task_instance ===================")
-    print(context['task_instance'])
+    print("=================== ti ===================")
+    print(context['ti'])
+    print("=================== var.json ===================")
+    print(context['var.json.org_id'])
+    print("=================== var.value ===================")
+    print(context['var.value.org_id'])
 
 
 # --------------------------
