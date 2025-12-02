@@ -9,10 +9,12 @@ from datetime import datetime
 # --------------------------
 def test_success_callback(context):
     print("🎉 SUCCESS CALLBACK 실행됨!")
+    print(context)
 
 
 def test_failure_callback(context):
     print("🔥 FAILURE CALLBACK 실행됨!")
+    print(context)
 
 
 # --------------------------
