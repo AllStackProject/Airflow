@@ -9,15 +9,16 @@ from datetime import datetime
 # --------------------------
 def test_success_callback(context):
     print("🎉 SUCCESS CALLBACK 실행됨!")
-    print(context['task_instance'])
+    print("=================== dag_run ===================")
+    print(context['dag_run'])
+    print("=================== var.json ===================")
+    print(context['var.json'])
+    print("=================== var.value ===================")
+    print(context['var.value'])
 
 
 def test_failure_callback(context):
     print("🔥 FAILURE CALLBACK 실행됨!")
-    print("=================== var.json ===================")
-    print(context['var.json.org_id'])
-    print("=================== var.value ===================")
-    print(context['var.value.org_id'])
 
 
 # --------------------------
@@ -46,7 +47,4 @@ with DAG(
     on_failure_callback=test_failure_callback,
 ) as dag:
 
-    ok = success_task()
-    ng = fail_task()
-
-    ok >> ng
+    success_task()
