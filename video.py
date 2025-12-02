@@ -296,7 +296,7 @@ with DAG(
     schedule=None,
     catchup=False,
     default_args = {
-        on_failure_callback=dag_fail_callback,
+        "on_failure_callback": dag_fail_callback,
     }
 ) as dag:
 
