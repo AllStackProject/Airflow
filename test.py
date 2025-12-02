@@ -7,9 +7,9 @@ from datetime import datetime
 # --------------------------
 # 콜백 함수
 # --------------------------
-def test_success_callback(**context):
+def test_success_callback(context):
     print("🎉 SUCCESS CALLBACK 실행됨!")
-    print(context)
+    print(context['dag_run'])
 
 
 def test_failure_callback(context):
