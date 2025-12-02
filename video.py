@@ -200,16 +200,18 @@ def packaging_and_upload(trans_outputs: list):
     hls_dir = f"{local_dir}/hls"
     os.makedirs(hls_dir, exist_ok=True)
 
+    # --------------------------
     # 각 해상도 mp4 → m3u8 + ts 변환
+    # --------------------------
     for mp4_path in trans_outputs:
         filename = os.path.basename(mp4_path)
         base_name = filename.replace(".mp4", "")
 
+        # 각 해상도 M3U8 파일 경로
         m3u8_path = f"{hls_dir}/{base_name}.m3u8"
-        seg_dir = f"{hls_dir}/{base_name}"
-        os.makedirs(seg_dir, exist_ok=True)
 
-        seg_pattern = f"{seg_dir}/{base_name}_%05d.ts"
+        # Segment 파일을 hls_dir 바로 아래에 생성
+        seg_pattern = f"{hls_dir}/{base_name}_%05d.ts"
 
         cmd = (
             f"ffmpeg -y -i {mp4_path} -c copy "
@@ -221,7 +223,9 @@ def packaging_and_upload(trans_outputs: list):
         print(f"[HLS] Packaging {base_name}")
         subprocess.run(cmd, shell=True, check=True)
 
+    # --------------------------
     # Master Playlist 생성
+    # --------------------------
     master_path = f"{hls_dir}/video.m3u8"
     with open(master_path, "w") as f:
         f.write("#EXTM3U\n")
@@ -240,13 +244,11 @@ def packaging_and_upload(trans_outputs: list):
 
     print("📝 Master Playlist 완료:", master_path)
 
-    # 업로드
-    for root, dirs, files in os.walk(hls_dir):
-        for file in files:
-            local_path = os.path.join(root, file)
-            key = f"hls/org-{org_id}/{video_uuid}/{local_path.replace(hls_dir, '').lstrip('/')}"
-            print("⬆️ Upload:", key)
-            s3.upload_file(local_path, BUCKET_OUTPUT, key)
+    for file in os.listdir(hls_dir):
+        local_path = os.path.join(hls_dir, file)
+        key = f"hls/org-{org_id}/{video_uuid}/{file}"
+        print("⬆️ Upload:", key)
+        s3.upload_file(local_path, BUCKET_OUTPUT, key)
 
     return True
 
