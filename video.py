@@ -116,23 +116,6 @@ def dag_fail_callback(context):
 
     requests.post(url, json=payload)
 
-
-def dag_success_callback(context):
-    print("============ SUCCESS ============")
-    
-    org_id = context["dag_run"].conf.get("org_id")
-    video_uuid = context["dag_run"].conf.get("video_uuid")
-
-    url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
-    payload = {
-        "video_uuid": video_uuid,
-        "status": "SUCCESS",
-        "message": "[DAG Success] Success upload"
-    }
-
-    requests.post(url, json=payload)
-
-
 # -------------------------------
 # 1) 다운로드
 # -------------------------------
@@ -286,6 +269,9 @@ def cleanup_local_files():
     if os.path.exists(target):
         shutil.rmtree(target, ignore_errors=True)
 
+    # 백엔드로 성공 메세지 전송
+    print("============ SUCCESS ============")
+    
     url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
     payload = {
         "video_uuid": video_uuid,
@@ -307,8 +293,9 @@ with DAG(
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    on_success_callback=dag_success_callback,
-    on_failure_callback=dag_fail_callback,
+    default_args = {
+        on_failure_callback=dag_fail_callback,
+    }
 ) as dag:
 
     local_dir = download_video()
