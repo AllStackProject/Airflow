@@ -9,8 +9,6 @@ from datetime import datetime
 # --------------------------
 def test_success_callback(context):
     print("🎉 SUCCESS CALLBACK 실행됨!")
-    print("=================== dag_run ===================")
-    print(context['dag_run'])
     print("=================== var.json ===================")
     print(context['var.json'])
     print("=================== var.value ===================")
