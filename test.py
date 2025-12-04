@@ -67,4 +67,4 @@ with DAG(
     }
 ) as dag:
 
-    success_task()
+    fail_task()
