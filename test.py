@@ -17,16 +17,16 @@ def on_failure_callback(context):
     print("🔥 FAILURE CALLBACK 실행됨!")
     
     org_id = context["dag_run"].conf.get("org_id")
-    video_uuid = context["dag_run"].conf.get("video_uuid")
+	video_uuid = context["dag_run"].conf.get("video_uuid")
 
 	# Task 인스턴스를 가져와 어떤 Task에서 에러가 났는지 확인할 수 있도록 한다.
 	text = str(context['task_instance'])   
     
     # exception 정보가 있으면 가져온다.
-    text += f"``` {str(context.get('exception'))} ```"
+	text += f"``` {str(context.get('exception'))} ```"
 
-    text += f"video_uuid = {video_uuid}"
-    text += f"org_id = {org_id}"
+	text += f"video_uuid = {video_uuid}"
+	text += f"org_id = {org_id}"
 
     url = f"https://hooks.slack.com/services/{Variable.get('slack_url')}"
 
