@@ -130,10 +130,6 @@ def dag_fail_callback(context):
         f"- video_uuid: `{video_uuid}`",
         f"- org_id: `{org_id}`",
         "",
-        "*Exception*",
-        "```python",
-        str(exception),
-        "```",
     ]
     slack_text = "\n".join(lines)
 
