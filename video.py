@@ -99,22 +99,83 @@ def exec_config(container):
 
 
 # -------------------------------
-# API 콜백 함수
+# API + Slack 실패 콜백
 # -------------------------------
 def dag_fail_callback(context):
     print("============ FAILED ============")
-    
-    org_id = context["dag_run"].conf.get("org_id")
-    video_uuid = context["dag_run"].conf.get("video_uuid")
 
-    url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
+    ti = context["task_instance"]
+    dag_run = context["dag_run"]
+    dag_conf = dag_run.conf
+
+    org_id = dag_conf.get("org_id")
+    video_uuid = dag_conf.get("video_uuid")
+    exception = context.get("exception")
+
+    # Airflow DAG Run UI 링크
+    airflow_url = f"https://airflow.loclx.io/dags/{ti.dag_id}/runs/{ti.run_id}/"
+
+    lines = [
+        "🔥 *DAG Failed!*",
+        "",
+        "*Task Info*",
+        f"- Task ID: `{ti.task_id}`",
+        f"- DAG ID: `{ti.dag_id}`",
+        f"- Run ID: `{ti.run_id}`",
+        f"- Try Number: `{ti.try_number}`",
+        f"- Hostname: `{ti.hostname}`",
+        "",
+        "*Config*",
+        f"- video_uuid: `{video_uuid}`",
+        f"- org_id: `{org_id}`",
+        "",
+        "*Exception*",
+        "```python",
+        str(exception),
+        "```",
+    ]
+    slack_text = "\n".join(lines)
+
+    # ------------------------------
+    # Slack Webhook URL
+    # ------------------------------
+    slack_url = f"https://hooks.slack.com/services/{Variable.get('slack_url')}"
+
+    # Slack block payload
     payload = {
-        "video_uuid": video_uuid,
-        "status": "FAILED",
-        "message": f"[DAG Failed] Failed"
+        "username": "airflow",
+        "icon_emoji": ":x:",
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": slack_text},
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "🔍 View DAG Run"},
+                        "url": airflow_url
+                    }
+                ]
+            }
+        ]
     }
 
-    requests.post(url, json=payload)
+    # Slack 전송
+    requests.post(slack_url, json=payload, headers={"content-type": "application/json"})
+
+    # ------------------------------
+    # 백엔드에도 실패 상태 전달
+    # ------------------------------
+    backend_url = f"https://www.privideo.cloud/api/{org_id}/video/airflow/status"
+    backend_payload = {
+        "video_uuid": video_uuid,
+        "status": "FAILED",
+        "message": f"[DAG Failed] job failed: {exception}"
+    }
+    requests.post(backend_url, json=backend_payload)
 
 # -------------------------------
 # 1) 다운로드
