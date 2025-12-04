@@ -1,6 +1,7 @@
 from airflow import DAG
 from airflow.decorators import task
 from datetime import datetime
+from airflow.models import Variable
 import boto3
 import os
 import subprocess
