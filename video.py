@@ -29,10 +29,10 @@ def make_container(cpu_req, cpu_limit, mem_req, mem_limit):
         env_from=[
             k8s.V1EnvFromSource(secret_ref=k8s.V1SecretEnvSource(name="airflow-aws"))
         ],
-        resources=k8s.V1ResourceRequirements(
-            requests={"cpu": cpu_req, "memory": mem_req},
-            limits={"cpu": cpu_limit, "memory": mem_limit},
-        ),
+        # resources=k8s.V1ResourceRequirements(
+        #     requests={"cpu": cpu_req, "memory": mem_req},
+        #     limits={"cpu": cpu_limit, "memory": mem_limit},
+        # ),
     )
 
 
