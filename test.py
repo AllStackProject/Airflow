@@ -26,21 +26,68 @@ def test_failure_callback(context):
     video_uuid = dag_conf.get("video_uuid")
     exception = context.get("exception")
 
-    text = f"""
-🔥 *Task Failed!*
+    # ---------------------------------------------------
+    # 🔥 가장 안정적인 문자열 생성 방식: 줄 배열 + join
+    # f-string 깨짐 / 공백 문제 / ``` 블록 문제 없음
+    # ---------------------------------------------------
+    lines = [
+        "🔥 *Task Failed!*",
+        "",
+        "*Task Info*",
+        f"- Task ID: `{ti.task_id}`",
+        f"- DAG ID: `{ti.dag_id}`",
+        f"- Run ID: `{ti.run_id}`",
+        f"- Try Number: {ti.try_number}",
+        f"- Hostname: {ti.hostname}",
+        f"- State: {ti.state}",
+        "",
+        "*Config*",
+        f"- video_uuid: `{video_uuid}`",
+        f"- org_id: `{org_id}`",
+        "",
+        "*Exception*",
+        "```python",
+        str(exception),
+        "```",
+    ]
 
-*Task Info*
-- Task ID: `{ti.task_id}`
-- DAG ID: `{ti.dag_id}`
-- Run ID: `{ti.run_id}`
-- Try Number: {ti.try_number}
-- Hostname: {ti.hostname}
-- State: {ti.state}
+    text = "\n".join(lines)
 
-*Config*
-- video_uuid: `{video_uuid}`
-- org_id: `{org_id}`
+    # Slack URL
+    slack_url = f"https://hooks.slack.com/services/{Variable.get('slack_url')}"
 
-*Exception*
-```python
-{exception}
+    payload = {
+        "user_name": "airflow",
+        "text": text,
+        "icon_emoji": ":x:"
+    }
+
+    headers = {"content-type": "application/json"}
+
+    # Slack 전송
+    requests.post(slack_url, json=payload, headers=headers)
+
+
+# --------------------------
+# Task
+# --------------------------
+@task
+def fail_task():
+    print("task 실패 실행 예정")
+    raise ValueError("일부러 예외 발생!")
+
+
+# --------------------------
+# DAG
+# --------------------------
+with DAG(
+    dag_id="callback_test_dag",
+    start_date=datetime(2025, 1, 1),
+    schedule=None,
+    catchup=False,
+    default_args={
+        "on_success_callback": test_success_callback,
+        "on_failure_callback": test_failure_callback,
+    }
+) as dag:
+    fail_task()
