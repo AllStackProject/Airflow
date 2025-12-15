@@ -1,0 +1,98 @@
+executor: "KubernetesExecutor"
+
+env:
+  - name: AIRFLOW__API__AUTH_BACKENDS
+    value: 'airflow.api.auth.backend.basic_auth'
+
+dags:
+  gitSync:
+    enabled: true
+    repo: https://github.com/AllStackProject/Airflow.git
+    branch: main
+    subPath: ""
+    credentialsSecret: airflow-git-secret
+  persistence:
+    enabled: false
+
+scheduler:
+  startupProbe:
+    initialDelaySeconds: 300
+    failureThreshold: 20
+    periodSeconds: 10
+    timeoutSeconds: 30
+  livenessProbe:
+    initialDelaySeconds: 10
+    timeoutSeconds: 120
+    failureThreshold: 20
+    periodSeconds: 60
+
+dagProcessor:
+  enabled: true
+  livenessProbe:
+    initialDelaySeconds: 60
+    timeoutSeconds: 20
+    periodSeconds: 60
+    failureThreshold: 10
+
+logs:
+  persistence:
+    enabled: true
+    existingClaim: pvc-hdd-airflow-logs
+
+triggerer:
+  enabled: false
+
+statsd:
+  enabled: true
+
+redis:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+pgbouncer:
+  enabled: true
+  metadataPoolSize: 40
+  resultBackendPoolSize: 20
+
+data:
+  metadataConnection:
+    user: airflow
+    pass: airflow
+    host: 172.16.2.110
+    protocol: postgresql
+    port: 5040
+    db: airflow
+
+apiServer:
+  service:
+    type: NodePort
+    ports:
+      - name: airflow-web
+        port: 8080
+        nodePort: 30180
+        protocol: TCP
+  startupProbe:
+    initialDelaySeconds: 600
+    timeoutSeconds: 60
+    periodSeconds: 10
+    failureThreshold: 20
+
+resources:
+  limits:
+    cpu: 2Gi
+    memory: 2Gi
+
+secret:
+  - envName: AWS_ACCESS_KEY_ID
+    secretName: airflow-aws
+    secretKey: AWS_ACCESS_KEY_ID
+
+  - envName: AWS_SECRET_ACCESS_KEY
+    secretName: airflow-aws
+    secretKey: AWS_SECRET_ACCESS_KEY
+
+  - envName: AWS_DEFAULT_REGION
+    secretName: airflow-aws
+    secretKey: AWS_DEFAULT_REGION
