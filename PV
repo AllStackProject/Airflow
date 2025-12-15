@@ -1,0 +1,31 @@
+# ~/volumes/pv/hdd-airflow-logs.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-hdd-airflow-logs
+spec:
+  capacity:
+    storage: 20G
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: 172.16.2.107
+    path: /export/airflow/logs
+
+---
+
+# ~/volumes/pv/hdd-airflow-worker-temp.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-hdd-airflow-worker-temp
+spec:
+  capacity:
+    storage: 14800Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: 172.16.2.107
+    path: /export/airflow/video
