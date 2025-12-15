@@ -1,0 +1,27 @@
+# ~/volumes/pvc/hdd-airflow-logs.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-hdd-airflow-logs
+  namespace: airflow
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 20G
+---
+# ~/volumes/pvc/hdd-airflow-worker-temp.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-hdd-airflow-worker-temp
+  namespace: airflow
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 14800Gi
