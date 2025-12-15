@@ -12,9 +12,7 @@ spec:
   nfs:
     server: 172.16.2.107
     path: /export/airflow/logs
-
 ---
-
 # ~/volumes/pv/hdd-airflow-worker-temp.yaml
 apiVersion: v1
 kind: PersistentVolume
